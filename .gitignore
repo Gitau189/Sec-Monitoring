@@ -1,0 +1,13 @@
+# Local env with (demo) secrets
+.env
+
+# Generated dataset — regenerate with `make data`, don't commit ~30MB of CSV
+data/generated/*.csv
+
+# Python
+__pycache__/
+*.pyc
+
+# OS junk
+.DS_Store
+!data/generated/.gitkeep

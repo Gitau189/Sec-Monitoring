@@ -1,0 +1,58 @@
+# =============================================================================
+# Promtail: tails PostgreSQL logs and ships them to Loki with security labels
+# =============================================================================
+# It classifies each line so Grafana/Loki can filter on:
+#   category = failed_login | privilege_change | audit_read | audit_write | audit_ddl
+# The postgres log_line_prefix in postgresql.conf MUST match the regex below.
+
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: postgresql
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: postgresql
+          host: sm_postgres
+          __path__: /var/log/postgresql/*.log
+
+    pipeline_stages:
+      # 1. Pull out the standard fields from our log_line_prefix.
+      #    Prefix format: '%m [%p] %q%u@%d(%r) LEVEL:  message'
+      - regex:
+          expression: '^(?P<ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+ \w+) \[(?P<pid>\d+)\] (?:(?P<user>\S+?)@(?P<db>\S+?)\((?P<remote>.*?)\) )?(?P<level>\w+):  (?P<msg>.*)$'
+
+      # 2. Classify the line into a security category using its content.
+      - match:
+          selector: '{job="postgresql"}'
+          stages:
+            - regex:
+                expression: '(?P<failed_login>password authentication failed|authentication failed for user|no pg_hba.conf entry)'
+            - regex:
+                expression: 'AUDIT: \w+,\d+,\d+,(?P<audit_class>ROLE|DDL|WRITE|READ|FUNCTION|MISC)'
+
+      # 3. Turn the extracted signals into a single `category` label.
+      - template:
+          source: category
+          template: '{{ if .failed_login }}failed_login{{ else if eq .audit_class "ROLE" }}privilege_change{{ else if eq .audit_class "DDL" }}audit_ddl{{ else if eq .audit_class "WRITE" }}audit_write{{ else if eq .audit_class "READ" }}audit_read{{ else }}other{{ end }}'
+
+      - labels:
+          level:
+          user:
+          db:
+          category:
+
+      # 4. Use the postgres timestamp (fall back to ingestion time if unparsed).
+      - timestamp:
+          source: ts
+          format: '2006-01-02 15:04:05.000 MST'
+          fallback_formats:
+            - '2006-01-02 15:04:05 MST'

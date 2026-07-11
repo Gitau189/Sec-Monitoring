@@ -1,0 +1,131 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 0,
+  "title": "Database Security Monitoring — Group 9",
+  "tags": ["dsa4030", "security", "postgres"],
+  "timezone": "browser",
+  "refresh": "10s",
+  "time": { "from": "now-30m", "to": "now" },
+  "schemaVersion": 39,
+  "panels": [
+    {
+      "type": "row",
+      "title": "Overview",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }
+    },
+    {
+      "type": "stat",
+      "title": "Superuser roles",
+      "description": "Should stay at 1 (postgres). >1 = possible privilege escalation.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 1 },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null }, { "color": "red", "value": 2 }
+          ] }
+        }
+      },
+      "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [ { "refId": "A", "expr": "sm_superusers_total", "datasource": { "type": "prometheus", "uid": "prometheus" } } ]
+    },
+    {
+      "type": "stat",
+      "title": "Role grants (privilege total)",
+      "description": "Total role memberships. A jump = a new GRANT / privilege change.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 1 },
+      "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [ { "refId": "A", "expr": "sm_role_grants_total", "datasource": { "type": "prometheus", "uid": "prometheus" } } ]
+    },
+    {
+      "type": "stat",
+      "title": "Failed logins (last 30m)",
+      "description": "Count of authentication failures from the postgres logs (Loki).",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 1 },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null }, { "color": "orange", "value": 5 }, { "color": "red", "value": 20 }
+          ] }
+        }
+      },
+      "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["sum"] } },
+      "targets": [ { "refId": "A", "expr": "sum(count_over_time({job=\"postgresql\", category=\"failed_login\"}[30m]))", "datasource": { "type": "loki", "uid": "loki" } } ]
+    },
+    {
+      "type": "stat",
+      "title": "Active client sessions",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 1 },
+      "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [ { "refId": "A", "expr": "sum(sm_active_sessions_count)", "datasource": { "type": "prometheus", "uid": "prometheus" } } ]
+    },
+
+    {
+      "type": "row",
+      "title": "Failed Logins",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 6 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Failed login rate (per user)",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 7 },
+      "targets": [ { "refId": "A", "expr": "sum by (user) (count_over_time({job=\"postgresql\", category=\"failed_login\"}[1m]))", "datasource": { "type": "loki", "uid": "loki" } } ]
+    },
+    {
+      "type": "logs",
+      "title": "Failed login events",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 7 },
+      "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending" },
+      "targets": [ { "refId": "A", "expr": "{job=\"postgresql\", category=\"failed_login\"}", "datasource": { "type": "loki", "uid": "loki" } } ]
+    },
+
+    {
+      "type": "row",
+      "title": "Privilege Changes & Auditing",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 15 }
+    },
+    {
+      "type": "logs",
+      "title": "Privilege change events (GRANT / ROLE / ALTER)",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 16 },
+      "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending" },
+      "targets": [ { "refId": "A", "expr": "{job=\"postgresql\", category=\"privilege_change\"}", "datasource": { "type": "loki", "uid": "loki" } } ]
+    },
+    {
+      "type": "logs",
+      "title": "Audit trail — reads / writes / DDL",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 16 },
+      "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending" },
+      "targets": [ { "refId": "A", "expr": "{job=\"postgresql\"} |= \"AUDIT:\"", "datasource": { "type": "loki", "uid": "loki" } } ]
+    },
+
+    {
+      "type": "row",
+      "title": "Data Export / Exfiltration",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 25 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Rows returned per user (SELECT/COPY) — bulk export signal",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 26 },
+      "fieldConfig": { "defaults": { "custom": { "drawStyle": "bars", "fillOpacity": 40 } } },
+      "targets": [ { "refId": "A", "expr": "sum by (username) (increase(sm_rows_read_rows_returned[5m]))", "legendFormat": "{{username}}", "datasource": { "type": "prometheus", "uid": "prometheus" } } ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Sessions by user",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 26 },
+      "targets": [ { "refId": "A", "expr": "sum by (username) (sm_active_sessions_count)", "legendFormat": "{{username}}", "datasource": { "type": "prometheus", "uid": "prometheus" } } ]
+    }
+  ]
+}

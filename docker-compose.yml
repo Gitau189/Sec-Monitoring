@@ -1,0 +1,128 @@
+# =============================================================================
+# DSA4030 Group 9 — Database Security Monitoring stack
+# =============================================================================
+#   postgres           PostgreSQL 16 + pgAudit          (the monitored DB)
+#   postgres_exporter  DB metrics for Prometheus
+#   prometheus         metrics store + alert rules
+#   loki               log store (failed logins, audit events)
+#   promtail           ships postgres logs -> loki
+#   grafana            dashboards + alerting (single pane of glass)
+#
+# Bring it up:  docker compose up -d --build
+# =============================================================================
+
+name: sec-monitoring
+
+services:
+  postgres:
+    build: ./postgres
+    container_name: sm_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-company}
+    command:
+      - postgres
+      - -c
+      - config_file=/etc/postgresql/postgresql.conf
+      - -c
+      - hba_file=/etc/postgresql/pg_hba.conf
+    volumes:
+      - ./postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ./postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+      - ./postgres/initdb:/docker-entrypoint-initdb.d:ro
+      - ./data/generated:/data:ro          # CSVs for `make load`
+      - pgdata:/var/lib/postgresql/data
+      - pglogs:/var/log/postgresql          # shared with promtail
+    ports:
+      # Host port is configurable — set POSTGRES_PORT in .env if 5432 is taken
+      # by a local PostgreSQL (a common clash). Container port stays 5432.
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-company}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [secnet]
+
+  postgres_exporter:
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: sm_postgres_exporter
+    restart: unless-stopped
+    environment:
+      # Connect as the read-only monitoring role created in 02_roles.sql
+      DATA_SOURCE_NAME: "postgresql://exporter:exporter_pw@postgres:5432/${POSTGRES_DB:-company}?sslmode=disable"
+      PG_EXPORTER_EXTEND_QUERY_PATH: "/etc/postgres_exporter/queries.yaml"
+    volumes:
+      - ./postgres_exporter/queries.yaml:/etc/postgres_exporter/queries.yaml:ro
+    ports:
+      - "9187:9187"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [secnet]
+
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: sm_prometheus
+    restart: unless-stopped
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - promdata:/prometheus
+    ports:
+      - "9090:9090"
+    depends_on: [postgres_exporter]
+    networks: [secnet]
+
+  loki:
+    image: grafana/loki:2.9.8
+    container_name: sm_loki
+    restart: unless-stopped
+    command: -config.file=/etc/loki/loki-config.yml
+    volumes:
+      - ./loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - lokidata:/loki
+    ports:
+      - "3100:3100"
+    networks: [secnet]
+
+  promtail:
+    image: grafana/promtail:2.9.8
+    container_name: sm_promtail
+    restart: unless-stopped
+    command: -config.file=/etc/promtail/promtail-config.yml
+    volumes:
+      - ./promtail/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
+      - pglogs:/var/log/postgresql:ro       # read the DB logs
+    depends_on: [loki]
+    networks: [secnet]
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: sm_grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafanadata:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on: [prometheus, loki]
+    networks: [secnet]
+
+volumes:
+  pgdata:
+  pglogs:
+  promdata:
+  lokidata:
+  grafanadata:
+
+networks:
+  secnet:
+    driver: bridge

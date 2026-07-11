@@ -1,0 +1,18 @@
+# Prometheus config for the DB security-monitoring stack.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+scrape_configs:
+  # PostgreSQL security + activity metrics (via postgres_exporter).
+  - job_name: postgres
+    static_configs:
+      - targets: ["postgres_exporter:9187"]
+
+  # Prometheus scraping itself (health).
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

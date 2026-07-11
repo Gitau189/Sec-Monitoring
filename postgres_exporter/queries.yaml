@@ -1,0 +1,95 @@
+# =============================================================================
+# Custom postgres_exporter queries -> Prometheus metrics
+# =============================================================================
+# These turn the monitoring views (04_monitoring_views.sql) and stat catalogs
+# into time-series so Prometheus can alert and Grafana can chart them.
+
+# ---- Connections currently open, broken down by user + state ----
+sm_active_sessions:
+  query: |
+    SELECT usename AS username,
+           state,
+           count(*) AS count
+    FROM pg_stat_activity
+    WHERE backend_type = 'client backend'
+    GROUP BY usename, state
+  metrics:
+    - username:
+        usage: "LABEL"
+        description: "Login role of the session"
+    - state:
+        usage: "LABEL"
+        description: "Session state (active/idle/...)"
+    - count:
+        usage: "GAUGE"
+        description: "Number of client sessions"
+
+# ---- Count of roles holding superuser (should stay constant!) ----
+sm_superusers:
+  query: |
+    SELECT count(*) AS total
+    FROM pg_roles
+    WHERE rolsuper
+  metrics:
+    - total:
+        usage: "GAUGE"
+        description: "Number of superuser roles in the cluster"
+
+# ---- Count of role memberships (privilege grants). A jump == new grant. ----
+sm_role_grants:
+  query: |
+    SELECT count(*) AS total
+    FROM pg_auth_members
+  metrics:
+    - total:
+        usage: "GAUGE"
+        description: "Total role membership grants in the cluster"
+
+# ---- Largest reads per user (bulk export / exfiltration signal) ----
+# rows returned per login role, summed across statements.
+sm_rows_read:
+  query: |
+    SELECT r.rolname AS username,
+           COALESCE(sum(s.rows), 0) AS rows_returned,
+           COALESCE(sum(s.calls), 0) AS calls
+    FROM pg_stat_statements s
+    JOIN pg_roles r ON r.oid = s.userid
+    WHERE s.query ILIKE 'select%' OR s.query ILIKE 'copy%'
+    GROUP BY r.rolname
+  metrics:
+    - username:
+        usage: "LABEL"
+        description: "Login role that ran the reads"
+    - rows_returned:
+        usage: "COUNTER"
+        description: "Cumulative rows returned by SELECT/COPY for this user"
+    - calls:
+        usage: "COUNTER"
+        description: "Cumulative SELECT/COPY calls for this user"
+
+# ---- Per-database transaction + tuple activity (baseline / anomaly context) ----
+sm_db_activity:
+  query: |
+    SELECT datname AS database,
+           xact_commit,
+           xact_rollback,
+           tup_returned,
+           tup_fetched
+    FROM pg_stat_database
+    WHERE datname NOT IN ('template0','template1')
+  metrics:
+    - database:
+        usage: "LABEL"
+        description: "Database name"
+    - xact_commit:
+        usage: "COUNTER"
+        description: "Committed transactions"
+    - xact_rollback:
+        usage: "COUNTER"
+        description: "Rolled-back transactions (failed txns)"
+    - tup_returned:
+        usage: "COUNTER"
+        description: "Rows returned by queries"
+    - tup_fetched:
+        usage: "COUNTER"
+        description: "Rows fetched by queries"

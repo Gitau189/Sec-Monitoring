@@ -1,0 +1,61 @@
+# =============================================================================
+# Prometheus alert rules — the automated half of "unauthorized access" detection
+# =============================================================================
+# View firing alerts at http://localhost:9090/alerts
+# (Grafana also renders these signals on the Security dashboard.)
+
+groups:
+  - name: db-security
+    rules:
+
+      # --- Privilege escalation: a new superuser appeared ---
+      - alert: NewSuperuserDetected
+        expr: sm_superusers_total > 1
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "More than one superuser role exists"
+          description: "sm_superusers_total = {{ $value }}. Expected 1 (postgres). A privilege escalation may have occurred."
+
+      # --- Privilege change: role grants increased from the baseline ---
+      # Baseline is captured at first scrape; a sustained increase = new GRANT.
+      - alert: RoleGrantsIncreased
+        expr: increase(sm_role_grants_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Role membership grants increased"
+          description: "{{ $value }} new role grant(s) in the last 5m — verify the privilege change was authorized."
+
+      # --- Bulk export: a user returned an unusually large number of rows ---
+      - alert: LargeDataExport
+        expr: increase(sm_rows_read_rows_returned[5m]) > 50000
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Large data read by {{ $labels.username }}"
+          description: "{{ $labels.username }} returned {{ $value }} rows in 5m — possible bulk export / exfiltration."
+
+      # --- Failed logins: rollbacks are a coarse proxy; the precise signal is
+      #     the Loki query on 'password authentication failed' (see dashboard). ---
+      - alert: HighRollbackRate
+        expr: increase(sm_db_activity_xact_rollback{database="company"}[5m]) > 20
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High transaction rollback rate on {{ $labels.database }}"
+          description: "{{ $value }} rollbacks in 5m — may indicate failed/abusive activity."
+
+      # --- Availability: the database went away ---
+      - alert: PostgresDown
+        expr: up{job="postgres"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "postgres_exporter cannot reach PostgreSQL"
+          description: "The monitored database or its exporter is down."
