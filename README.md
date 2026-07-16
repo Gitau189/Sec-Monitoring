@@ -5,7 +5,7 @@ Scenario: a company suspects unauthorized database access. This repo builds a
 Postgres environment with pgAudit logging, RBAC, and detection scripts for
 failed logins, privilege changes, and large data exports.
 
-## Setup — Direct install (Ubuntu/WSL2)
+## Method 1 : Setup — Direct install (Ubuntu/WSL2)
 
 Used as a fallback on machines where Docker Desktop had persistent startup
 issues. Produces an environment functionally identical to the Docker setup —
@@ -79,7 +79,7 @@ Everything else (tables, roles, data, logs) persists on disk exactly as left.
 privilege escalation blocking, bulk data export detection, PII access
 restriction, audit-log persistence across restarts, a quantified
 normal-vs-suspicious activity comparison, and role-creation restriction.
-Full matrix in `tests/security_tests.md`; supporting screenshots/log excerpts
+Full matrix in `reports/tests.md`; supporting screenshots/log excerpts
 in `evidence_portfolio/`.
 
 Key finding: the initial pgAudit configuration (`write,ddl,role`) did not
