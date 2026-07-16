@@ -167,3 +167,45 @@ Screenshots referenced below are stored in `evidence_portfolio/screenshots_ubunt
 All 7 tests passed. One configuration gap was discovered and corrected
 during testing (Test 3), demonstrating the value of active security testing
 over static configuration review alone.
+---
+
+## Supplementary Evidence: Grafana Dashboard
+
+While each test above is independently backed by terminal output and raw
+log excerpts, a Grafana dashboard was also built to provide a live,
+visual view of the same security events — closer to how a real security
+operations team would monitor a production database on an ongoing basis,
+rather than reviewing raw log files after the fact.
+
+- **Objective:** Provide a consolidated, at-a-glance view of security
+  events (failed logins, blocked privilege changes, bulk exports) that
+  updates as new tests are run, rather than requiring manual log review.
+- **Procedure:** pgAudit/Postgres log events were parsed by
+  `scripts/load_events_to_db.py` and loaded into a dedicated
+  `security_events` table, which Grafana queries directly via a PostgreSQL
+  data source.
+- **Expected result:** The dashboard should reflect the same event counts
+  already confirmed in Tests 1, 2, 3, and 6 above (34 failed logins, 3
+  blocked privilege changes, 1 bulk export).
+- **Actual result:** The dashboard's three panels correctly displayed:
+  - **Security Events Over Time** — a time series showing when each event
+    type occurred, with the failed-login burst and the single bulk-export
+    spike clearly visible
+  - **Security Events by Type** — a summary chart confirming 34 failed
+    logins, 3 blocked privilege changes, and 1 bulk export, matching the
+    counts obtained independently via `grep` in Test 6
+  - **Recent Security Events** — a detailed table listing each event's
+    timestamp, type, username, and raw log detail, allowing drill-down
+    into any specific event
+- **Evidence:** `evidence_portfolio/screenshots_ubuntu/17_Grafana_Dashboard.png`
+
+This confirms the security event data is consistent across three
+independent views — raw log file, `grep`-based counts, and the Grafana
+dashboard — with no discrepancies.
+
+```
+http://localhost:3000/public-dashboards/89e304baa6c949f8bcf3dfde190604d0
+```
+```
+http://localhost:3000/dashboard/snapshot/teZID91zDCFivTcP0RhuNhkJdCnFS2nC
+```
