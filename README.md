@@ -5,7 +5,7 @@ Scenario: a company suspects unauthorized database access. This repo builds a
 Postgres environment with pgAudit logging, RBAC, and detection scripts for
 failed logins, privilege changes, and large data exports.
 
-## Setup — Direct install (Ubuntu/WSL2)
+## Method 1 : Setup — Direct install (Ubuntu/WSL2)
 
 Used as a fallback on machines where Docker Desktop had persistent startup
 issues. Produces an environment functionally identical to the Docker setup —
