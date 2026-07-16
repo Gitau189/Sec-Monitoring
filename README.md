@@ -176,7 +176,7 @@ Everything else (tables, roles, data, logs) persists on disk exactly as left.
 | 7 | Role creation restricted to privileged users | ✅ Pass |
 
 Full objective/procedure/expected/actual/evidence matrix:
-**[`reports/tests.md`](reports/tests_ubuntu.md)**
+**[`reports/tests_ubuntu.md`](reports/tests_ubuntu.md)**
 
 Supporting screenshots and log excerpts: **`evidence_portfolio/`**
 
