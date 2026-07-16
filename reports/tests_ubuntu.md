@@ -43,7 +43,6 @@ Screenshots referenced below are stored in `evidence_portfolio/screenshots_ubunt
 ---
 `test2_privilege_escalation_blocked.png`
 ![alt text](../evidence_portfolio/screenshots_ubuntu/08_test2_privilege_escalation_blocked.PNG)
-
 ---
 `test2_privilege_escalation_blocked_log.png`
 ![alt text](../evidence_portfolio/screenshots_ubuntu/09_test2_privilege_escalation_blocked_log.PNG)
@@ -83,8 +82,14 @@ Screenshots referenced below are stored in `evidence_portfolio/screenshots_ubunt
   the raw `customers` table.
 - **Actual result:** Denied with `ERROR: permission denied for table
   customers`.
-- **Evidence:** `test4_pii_access_denied.png`,
-  `test4_pii_access_denied_log.png`
+- **Evidence:**
+--- 
+`test4_pii_access_denied.png`
+![alt text](../evidence_portfolio/screenshots_ubuntu/12_test4_pii_access_denied.PNG)
+---
+`test4_pii_access_denied_log.png`
+![alt text](../evidence_portfolio/screenshots_ubuntu/13_test4_pii_access_denied_log.PNG)
+---
 
 ## Test 5: Audit logging persists across a database restart
 
@@ -97,7 +102,11 @@ Screenshots referenced below are stored in `evidence_portfolio/screenshots_ubunt
 - **Actual result:** Confirmed — `pgaudit extension initialized` appeared
   immediately after the restart, before the "ready to accept connections"
   message.
-- **Evidence:** `test5_audit_survives_restart.png`
+- **Evidence:** 
+---
+`test5_audit_survives_restart.png`
+![alt text](../evidence_portfolio/screenshots_ubuntu/14_test5_audit_survives_restart.PNG)
+---
 
 ## Test 6: Normal vs. suspicious activity — quantified comparison
 
