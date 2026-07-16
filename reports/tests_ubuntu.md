@@ -128,7 +128,11 @@ Screenshots referenced below are stored in `evidence_portfolio/screenshots_ubunt
   traffic. This demonstrates a detection rule such as "flag any query
   without WHERE/LIMIT returning >1000 rows" or "flag >5 failed logins in
   under 1 minute" would be effective here.
-- **Evidence:** `test6_normal_vs_suspicious_comparison.png`
+- **Evidence:** 
+---
+`test6_normal_vs_suspicious_comparison.png`
+![alt text](../evidence_portfolio/screenshots_ubuntu/15_test6_normal_vs_suspicious_comparison.PNG)
+---
 
 ## Test 7: Role creation restricted to privileged users
 
@@ -141,7 +145,10 @@ Screenshots referenced below are stored in `evidence_portfolio/screenshots_ubunt
   CREATEROLE attribute.
 - **Actual result:** Denied with `ERROR: permission denied to create role`
   / `DETAIL: Only roles with the CREATEROLE attribute may create roles.`
-- **Evidence:** `test7_role_creation_denied.png`
+- **Evidence:** 
+---
+`test7_role_creation_denied.png`
+![alt text](../evidence_portfolio/screenshots_ubuntu/16_test7_role_creation_denied.PNG)
 
 ---
 
