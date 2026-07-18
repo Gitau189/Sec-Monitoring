@@ -1,0 +1,66 @@
+# Appendix: Detailed Security Testing & Control Validation Report
+
+## 1. Overview
+
+The security testing phase was designed to validate the efficacy of the `pgAudit` and Role-Based Access Control (RBAC) configurations within the PostgreSQL environment. My role focused on the functional execution of security tests, rigorous validation of audit log integrity, and the resolution of pipeline ingestion issues to ensure that security events were captured and accessible for operational monitoring.
+
+## 2. Testing Methodology
+
+Testing was conducted by simulating real-world threat vectors against the live database environment. Each test involved executing specific SQL commands or scripts to trigger security responses, followed by a manual inspection of raw log files and the Grafana interface to confirm event capture.
+
+## 3. Comprehensive Security Control Validation
+
+### A. Authentication & Brute-Force Detection
+
+To evaluate authentication security, I simulated repeated failed login attempts against restricted roles.
+
+* **Validation**: By executing iterative failed login attempts, I confirmed that the database generated clear `FATAL: password authentication failed` log entries.
+
+
+* **Audit Attribution**: Each entry was successfully mapped to the target username and timestamp, validating that the environment provides sufficient forensic evidence to identify brute-force patterns.
+
+
+
+### B. RBAC Enforcement & Privilege Restriction
+
+I performed targeted tests to ensure that the Principle of Least Privilege was strictly enforced across different user roles.
+
+* **Privilege Escalation**: I attempted to execute `ALTER ROLE` commands as a standard `analyst` role. The system successfully denied these requests, and the corresponding "permission denied" errors were recorded in the audit logs, confirming the effectiveness of the role restrictions.
+
+
+* **PII Access Control**: I validated that the `readonly` role was incapable of querying sensitive tables directly. My tests confirmed that the role was blocked from accessing raw PII and was successfully restricted to authorized views only.
+
+
+* **Administrative Vector Mitigation**: I tested whether non-privileged roles could create new accounts. The results confirmed that the system correctly blocked unauthorized `CREATE ROLE` attempts, preventing potential backdoor creation.
+
+
+
+### C. Data Exfiltration & Bulk Export Detection
+
+I conducted tests to ensure that large-scale data exfiltration attempts could be identified through audit logs.
+
+* **Detection Mechanics**: By executing unbounded `SELECT` queries, I confirmed that pgAudit captured these events.
+* **Configuration Optimization**: During this testing, I identified a critical configuration gap where read-only queries were initially omitted from logs. I validated the subsequent fix, ensuring that `read` operations are now consistently logged.
+
+
+
+## 4. Operational Resilience and Pipeline Validation
+
+### A. Audit Logging Persistence
+
+To ensure that security controls were not transient, I performed a full database service restart. My validation confirmed that the `pgaudit` extension initialized automatically upon restart without manual intervention, maintaining a continuous security posture.
+
+### B. Pipeline Troubleshooting & Log Ingestion
+
+A significant portion of my testing focused on ensuring the reliability of the monitoring stack.
+
+* **Root Cause Analysis**: I diagnosed log ingestion failures that were preventing security events from appearing in the dashboard.
+* **System Resolution**: I resolved these issues by rectifying Promtail configuration bottlenecks and correcting host-level permission settings (`chmod -R 755 /var/lib/docker/containers/`).
+* **Verification**: I confirmed the success of these fixes by verifying that the tailing routine was active and that security events were consistently flowing from the Postgres logs into the Loki/Grafana pipeline.
+
+
+
+## 5. Detection Logic Refinement
+
+I established a structural distinction between normal and suspicious database activity. By comparing scoped queries (normal usage) against full-table exports (suspicious usage), I successfully validated that the log signals are distinct enough to support effective automated alerting and rule creation (e.g., flagging queries based on row count thresholds or missing `WHERE`/`LIMIT` clauses).
+
